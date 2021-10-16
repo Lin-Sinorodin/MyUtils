@@ -6,6 +6,7 @@ class SetPlotOptions:
         self._restore_default_options()
         self._use_latex_if_available()
         self._set_plot_style()
+        self._set_svg_inline()
 
     @staticmethod
     def _restore_default_options():
@@ -33,3 +34,13 @@ class SetPlotOptions:
         plt.rcParams['ytick.major.size'] = 7.0
         plt.rcParams['ytick.minor.size'] = 3.0
         plt.rcParams['ytick.direction'] = 'inout'
+
+    @staticmethod
+    def _set_svg_inline():
+        """If the code runs in an IPython environment, set matplotlib_inline backend to SVG"""
+        try:
+            _ = get_ipython().__class__.__name__   # error if not IPython
+            import matplotlib_inline.backend_inline
+            matplotlib_inline.backend_inline.set_matplotlib_formats('svg')
+        except:
+            pass
