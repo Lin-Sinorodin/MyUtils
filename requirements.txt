@@ -1,2 +1,6 @@
+opencv
 matplotlib
 setuptools
+numpy
+tqdm
+tabulate
