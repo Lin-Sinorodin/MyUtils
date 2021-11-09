@@ -8,8 +8,12 @@ class HiddenPrints:
     Source: https://www.codegrepper.com/code-examples/python/python+turn+off+printing
     Example:
         with HiddenPrints():
-          print("This wont print")
+            print("This wont print")
     """
+
+    def __init__(self):
+        pass
+
     def __enter__(self):
         self._original_stdout = sys.stdout
         sys.stdout = open(os.devnull, 'w')
