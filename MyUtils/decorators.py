@@ -17,6 +17,11 @@ def exception_str(e: Exception) -> str:
     return f'{type(e).__name__}({e})'
 
 
+class FailedAllRetries(Exception):
+    """Custom exception for retry decorator"""
+    pass
+
+
 def retry(tries=4, first_delay=0.1, multiply_delay=2, continue_if_failed=True):
     def decorator(func):
         @wraps(func)
@@ -42,7 +47,7 @@ def retry(tries=4, first_delay=0.1, multiply_delay=2, continue_if_failed=True):
                 return False
             else:
                 # return an exception to force the program to stop
-                raise Exception(f'Failed after all {tries} tries')
+                raise FailedAllRetries(f'Failed after all {tries} tries')
 
         return wrapper
     return decorator
