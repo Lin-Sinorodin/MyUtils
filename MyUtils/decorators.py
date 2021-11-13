@@ -1,4 +1,5 @@
 import time
+import asyncio
 from functools import wraps
 
 
@@ -32,33 +33,70 @@ def decorator_with_args(no_param_decorator):
 
 
 @decorator_with_args
-def retry(func, tries=4, first_delay=0.1, multiply_delay=2, continue_if_failed=True):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
+def retry(func, tries: int = 4, first_delay: float = 0.1, multiply_delay: float = 2., continue_if_failed: bool = True):
+    """
+    Decorator to retry run the function a few more times if it fails.
+    Based on: https://gist.github.com/Integralist/fb1b5dbb6271632298f44d62a2221905
 
-        delay = first_delay
-        remaining_tries = tries
-        while remaining_tries > 0:
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                remaining_tries -= 1
+    :param func: the decorated function
+    :param tries: number of times the function will retry to run if it fails.
+    :param first_delay: the number of seconds between the first fail and the first retry.
+    :param multiply_delay: each retry being awaited last_delay*multiply_delay seconds.
+    :param continue_if_failed: if True the function will return False and continue. Else, raise an exception and stop.
+    """
+    if asyncio.iscoroutinefunction(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            delay = first_delay
+            remaining_tries = tries
+            while remaining_tries > 0:
+                try:
+                    result = await func(*args, **kwargs)
+                    return result
+                except Exception as e:
+                    remaining_tries -= 1
 
-                msg = f'{exception_str(e)} when calling: {func_call_str(func, args, kwargs)}. '
-                retry_msg = f'Retrying ({tries-remaining_tries}/{tries}) in {delay} seconds...'
-                print(msg+retry_msg)
+                    msg = f'{exception_str(e)} when calling: {func_call_str(func, args, kwargs)}. '
+                    retry_msg = f'Retrying ({tries - remaining_tries}/{tries}) in {delay} seconds...'
+                    print(msg + retry_msg)
 
-                time.sleep(delay)
-                delay *= multiply_delay   # multiply the waiting time for next try
+                    await asyncio.sleep(delay)
+                    delay *= multiply_delay  # multiply the waiting time for next try
 
-        if continue_if_failed:
-            # return False, and keep running the program
-            return False
-        else:
-            # return an exception to force the program to stop
-            raise FailedAllRetries(f'Failed after all {tries} tries')
+            if continue_if_failed:
+                # return False, and keep running the program
+                return False
+            else:
+                # return an exception to force the program to stop
+                raise FailedAllRetries(f'Failed after all {tries} tries')
 
-    return wrapper
+        return wrapper
+    else:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            delay = first_delay
+            remaining_tries = tries
+            while remaining_tries > 0:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    remaining_tries -= 1
+
+                    msg = f'{exception_str(e)} when calling: {func_call_str(func, args, kwargs)}. '
+                    retry_msg = f'Retrying ({tries-remaining_tries}/{tries}) in {delay} seconds...'
+                    print(msg+retry_msg)
+
+                    time.sleep(delay)
+                    delay *= multiply_delay   # multiply the waiting time for next try
+
+            if continue_if_failed:
+                # return False, and keep running the program
+                return False
+            else:
+                # return an exception to force the program to stop
+                raise FailedAllRetries(f'Failed after all {tries} tries')
+
+        return wrapper
 
 
 @decorator_with_args
@@ -98,6 +136,16 @@ if __name__ == '__main__':
 
     print('\nTest retry decorator:')
     test_retry('param1', param2='param2')
+
+
+    @retry(continue_if_failed=True)
+    async def test_retry_async(param1='param1', param2='param2'):
+        raise ValueError('value not supported')
+
+
+    print('\nTest async retry decorator:')
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(test_retry_async(param1='param1', param2='param2'))
 
 
     @log()
