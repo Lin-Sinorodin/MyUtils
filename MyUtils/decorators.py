@@ -2,7 +2,7 @@ import time
 from functools import wraps
 
 
-def duration_from(t_start) -> str:
+def duration_from(t_start: float) -> str:
     return f'{time.perf_counter() - t_start :.02f}s'
 
 
@@ -22,60 +22,72 @@ class FailedAllRetries(Exception):
     pass
 
 
-def retry(tries=4, first_delay=0.1, multiply_delay=2, continue_if_failed=True):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-
-            delay = first_delay
-            remaining_tries = tries
-            while remaining_tries > 0:
-                try:
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    remaining_tries -= 1
-
-                    msg = f'{exception_str(e)} when calling: {func_call_str(func, args, kwargs)}. '
-                    retry_msg = f'Retrying ({tries-remaining_tries}/{tries}) in {delay} seconds...'
-                    print(msg+retry_msg)
-
-                    time.sleep(delay)
-                    delay *= multiply_delay   # multiply the waiting time for next try
-
-            if continue_if_failed:
-                # return False, and keep running the program
-                return False
-            else:
-                # return an exception to force the program to stop
-                raise FailedAllRetries(f'Failed after all {tries} tries')
-
+def decorator_with_args(no_param_decorator):
+    """Decorates another decorator to make it accept parameters. Source: https://gist.github.com/lnhote/7875074"""
+    def decorator(*args, **kwargs):
+        def wrapper(func):
+            return no_param_decorator(func, *args, **kwargs)
         return wrapper
     return decorator
 
 
-def log(before_call=True, after_call=True, logger=None):
-    def log_msg(msg):
+@decorator_with_args
+def retry(func, tries=4, first_delay=0.1, multiply_delay=2, continue_if_failed=True):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+
+        delay = first_delay
+        remaining_tries = tries
+        while remaining_tries > 0:
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                remaining_tries -= 1
+
+                msg = f'{exception_str(e)} when calling: {func_call_str(func, args, kwargs)}. '
+                retry_msg = f'Retrying ({tries-remaining_tries}/{tries}) in {delay} seconds...'
+                print(msg+retry_msg)
+
+                time.sleep(delay)
+                delay *= multiply_delay   # multiply the waiting time for next try
+
+        if continue_if_failed:
+            # return False, and keep running the program
+            return False
+        else:
+            # return an exception to force the program to stop
+            raise FailedAllRetries(f'Failed after all {tries} tries')
+
+    return wrapper
+
+
+@decorator_with_args
+def log(func, before_call=True, after_call=True, logger=None, logger_disp_level='INFO'):
+
+    def log_msg(msg: str) -> None:
+        """Display a message with logger or print"""
         if logger:
-            logger.info(msg)
+            if logger_disp_level == 'DEBUG':
+                logger.debug(msg)
+            else:
+                logger.info(msg)
         else:
             print(msg)
 
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            t_start = time.perf_counter()
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        t_start = time.perf_counter()
 
-            if before_call:
-                log_msg(f'Calling {func_call_str(func, args, kwargs)}')
+        if before_call:
+            log_msg(f'Calling {func_call_str(func, args, kwargs)}')
 
-            result = func(*args, **kwargs)
+        result = func(*args, **kwargs)
 
-            if after_call:
-                log_msg(f'call for {func.__name__} finished after {duration_from(t_start)}')
+        if after_call:
+            log_msg(f'call for {func.__name__} finished after {duration_from(t_start)}')
 
-            return result
-        return wrapper
-    return decorator
+        return result
+    return wrapper
 
 
 if __name__ == '__main__':
