@@ -24,7 +24,7 @@ class FailedAllRetries(Exception):
 
 
 def decorator_with_args(no_param_decorator):
-    """Decorates another decorator to make it accept parameters. Source: https://gist.github.com/lnhote/7875074"""
+    """Decorates a basic decorator, allowing it accept parameters. Source: https://gist.github.com/lnhote/7875074"""
     def decorator(*args, **kwargs):
         def wrapper(func):
             return no_param_decorator(func, *args, **kwargs)
