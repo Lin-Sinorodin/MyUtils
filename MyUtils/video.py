@@ -1,12 +1,12 @@
-import cv2
 import os
+import cv2
 import numpy as np
 from tabulate import tabulate
 from tqdm.autonotebook import tqdm
 
 
 class Video:
-    def __init__(self, video_path):
+    def __init__(self, video_path: str):
         self.video_path = video_path
         self.video_cap = cv2.VideoCapture(video_path)
 
@@ -15,13 +15,12 @@ class Video:
         self.height, self.width = self._get_frames_dimension()
 
     def __str__(self):
-        video_details = [
+        return tabulate([
             ['Video path', self.video_path],
             ['Number of frames', self.num_frames],
             ['FPS', self.fps],
             ['(height, width)', f'({self.height}, {self.width})']
-        ]
-        return tabulate(video_details)
+        ])
 
     def __iter__(self):
         for _ in range(self.num_frames):
@@ -32,40 +31,34 @@ class Video:
 
         self.video_cap.release()
 
-    def _get_num_frames(self):
+    def _get_num_frames(self) -> int:
         num_frames = int(self.video_cap.get(cv2.CAP_PROP_FRAME_COUNT))
         assert num_frames > 0, 'The video contains 0 frames.'
         return num_frames
 
-    def _get_fps(self):
+    def _get_fps(self) -> int:
         return int(self.video_cap.get(cv2.CAP_PROP_FPS))
 
-    def _get_frames_dimension(self):
+    def _get_frames_dimension(self) -> tuple[int, int]:
         _, frame = cv2.VideoCapture(self.video_path).read()
         height, width, channels = frame.shape
         return height, width
 
-    def _frames_progress_bar(self, description):
-        return tqdm(enumerate(self), desc=description, unit='frame', total=self.num_frames)
-
-    def export_frames(self, frames_path):
+    def export_frames(self, frames_path: str) -> None:
         os.makedirs(frames_path, exist_ok=True)
         file_name_zero_padding = len(str(self.num_frames))
         self.video_cap = cv2.VideoCapture(self.video_path)
 
-        for count, frame in self._frames_progress_bar(description='Exporting frames'):
+        progress_bar_settings = {'desc': 'Exporting frames', 'unit': 'frame', 'total': self.num_frames}
+        for count, frame in tqdm(enumerate(self), **progress_bar_settings):
             frame_number = str(count).zfill(file_name_zero_padding)
             frame_path = f'{frames_path}/{frame_number}.jpg'
             cv2.imwrite(frame_path, frame)
 
-    def get_video_writer(self, video_path):
+    def get_video_writer(self, video_path: str) -> cv2.VideoWriter:
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         dimension = (self.width, self.height)
-        video_writer = cv2.VideoWriter(video_path, fourcc, self.fps, dimension)
-        return video_writer
+        return cv2.VideoWriter(video_path, fourcc, self.fps, dimension)
 
-    def get_frames_tensor(self):
-        frames = []
-        for frame in self:
-            frames.append(frame)
-        return np.array(frames)
+    def get_frames_tensor(self) -> np.array:
+        return np.array([frame for frame in self])
